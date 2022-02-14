@@ -25,6 +25,7 @@
       <a href="#getting-started">Getting Started</a>
     </li>
     <li><a href="#usage">Usage</a></li>
+    <li><a href="#usage">Additional code supporting paper</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#contact">Contact</a></li>
   </ol>
@@ -104,6 +105,39 @@ To train a model on your own data, run
    ```sh
    python TrainAndDetect.py train --dataset=/path/to/parent --weights=coco
    ```
+
+
+## Additional code supporting paper
+
+In this repository we have also included the code for producing the results presented in the paper. 
+
+### Calculate detection accuracy
+
+The python script *calculateDetectionPerformance.py* returns a number of different metrics:
+
+* INFO
+		+ Number of annotated objects
+		+ Number of predictions made
+		+ Correct positives
+		+ Matches nrow
+		+ False positives
+		+ False negatives
+		+ Mismatches
+		+ Images in the detections
+		+ Images in the ground truth
+
+* SCORES
+		+ Precision
+		+ Recall
+		+ F1
+		+ MOTA
+		+ Mismatch ratio
+
+
+### Produce figures
+
+The R script produceFigures.R outputs the figures presented in the paper. The data folder in this repository contains the data input for this script.
+
 
 
 <!-- CONTACT -->
