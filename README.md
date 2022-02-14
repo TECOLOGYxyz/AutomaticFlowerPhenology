@@ -45,20 +45,19 @@ Advancement of spring is a widespread biological response to climate change obse
 <!-- GETTING STARTED -->
 ## Getting Started
 
-This repository contains stuff related to the paper and links to archived data. The flower detection model is built on the <a href="https://github.com/matterport/Mask_RCNN"><strong>Mask RCNN framework»</strong></a>. We've made a <a href="https://github.com/TECOLOGYxyz/Mask_RCNN"><strong>copy</strong></a> (fork) of the repository, to make sure that it is available for you and added the customizations done for our flower detection model. The Matterport implementation is nicely domumented and contains some good tutorials. If this is your first time dipping your toes in the deep (learning) waters, you might want to go through some of these. If you experience any issued with Mask-RCNN, you can check the <a href="https://github.com/matterport/Mask_RCNN/issues"><strong>Matterport Mask-RCNN issues</strong></a> to see if other people have had similar problems and what they did to solve them. If you want to use Mask RCNN and our models on your own data, you can follow the steps below.
+This repository contains stuff related to the paper and links to archived data. The flower detection model is built on the <a href="https://github.com/matterport/Mask_RCNN"><strong>Mask RCNN framework»</strong></a>. We've made a <a href="https://github.com/TECOLOGYxyz/Mask_RCNN"><strong>copy</strong></a> (fork) of the repository, to make sure that it is available for you and added the customizations done for our flower detection model. The Matterport implementation is nicely domumented and contains some good tutorials. If this is your first time dipping your toes in the deep (learning) waters, you might want to go through some of these. If you experience any issued with Mask-RCNN, you can check the <a href="https://github.com/matterport/Mask_RCNN/issues"><strong>Matterport Mask-RCNN issues</strong></a> to see if other people have had similar problems and what they did to solve them. 
 
 Our fork of Mask RCNN: <a href="https://github.com/TECOLOGYxyz/Mask_RCNN"><strong>TECOLOGYxyz/Mask_RCNN</strong></a>
 
-We customized a few things for our use of Mask-RCNN. 
-
-For detection, we added the option to run inference on all images in a folder and output the results in .csv format. We also added some info printing to the screen - processing time per image and stuff like that.
+*We customized a few things for our use of Mask-RCNN*. For detection, we added the option to run inference on all images in a folder and output the results in .csv format. We also added some info printing to the screen - processing time per image and stuff like that.
 For training, we implemented a more elaborate augmentation scheme than what was part of the original training. This improved our results.
 
-The above customizations are found in the TrainAndDetect.py script.
+The above customizations are found in the TrainAndDetect.py script. As the name suggests, you can use this to both initiate training on you own data and to run inference on images with a trained model.
 
 Two flower detetion models are published along with the paper. To get started using these models or to train your own, you need to download the models from the link below, clone the TECOLOGYxyz/Mask_RCNN repo and install the required python packages.
 
 Download the flower detection models: 
+
 
 Clone the TECOLOGYxyz/Mask_RCNN repo
 1. ```sh
@@ -94,16 +93,17 @@ To train your own model, you need annotated images separated into a train and a 
 Your folder structure should look like this:
 parent
 -train
+--train images
+--train.json
 -val
--train.json
--val.json
+--val images
+--val.json
 
 
 To train a model on your own data, run
    ```sh
    python TrainAndDetect.py train --dataset=/path/to/parent --weights=coco
    ```
-
 
 
 <!-- CONTACT -->
