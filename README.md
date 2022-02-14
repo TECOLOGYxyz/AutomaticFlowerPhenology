@@ -1,6 +1,9 @@
 [![TECOLOGYxyz - AutomaticFlowerPhenology](https://img.shields.io/static/v1?label=TECOLOGYxyz&message=AutomaticFlowerPhenology&color=blue&logo=github)](https://github.com/TECOLOGYxyz/AutomaticFlowerPhenology "Go to GitHub repo")
 
 
+This repository supports the paper *Automatic flower detection and phenology monitoring using time-lapse cameras and deep learning*.
+
+
 <!-- PROJECT LOGO -->
 <br />
 <p align="center">
@@ -35,8 +38,6 @@
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
-
-This repository supports the paper *Automatic flower detection and phenology monitoring using time-lapse cameras and deep learning*.
 
 
 *ABSTRACT*
@@ -118,22 +119,22 @@ In this repository we have also included the code for producing the results pres
 The python script *calculateDetectionPerformance.py* returns a number of different metrics:
 
 * INFO
-		+ Number of annotated objects
-		+ Number of predictions made
-		+ Correct positives
-		+ Matches nrow
-		+ False positives
-		+ False negatives
-		+ Mismatches
-		+ Images in the detections
-		+ Images in the ground truth
+    + Number of annotated objects
+    + Number of predictions made
+    + Correct positives
+    + Matches nrow
+    + False positives
+    + False negatives
+    + Mismatches
+    + Images in the detections
+    + Images in the ground truth
 
 * SCORES
-		+ Precision
-		+ Recall
-		+ F1
-		+ MOTA
-		+ Mismatch ratio
+    + Precision
+    + Recall
+    + F1
+    + MOTA
+    + Mismatch ratio
 
 
 ### Produce figures
