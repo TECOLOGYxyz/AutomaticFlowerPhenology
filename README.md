@@ -87,10 +87,14 @@ You are now ready to use Mask RCNN. You can follow the Matterport guides and tut
 To detect flowers in images in a folder, give the script the path to the root folder (the folder containing the folder with images that you want to process) and the name of folder with the images. Further, give the path to the weights-file you want to use.
 
 
+### Detect
+
 To detect flowers in images, run
    ```sh
    python TrainAndDetect.py detect --dataset=path/to/root --subset=name_of_folder_with_images --weights=path/to/MRCNN_Dryas_Model1.h5
    ```
+
+### Train
 
 To train your own model, you need annotated images separated into a train and a val (validation) folder and the corresponding annotation files (train.json and val.json). You can use the <a href="https://www.robots.ox.ac.uk/~vgg/software/via/"><strong>VIA VGG</strong></a> annotation tool (we used version 2.0.5). With the --weights command you can tell the script to train as a finetuning of a model trained on the coco dataset or on another model.
 
