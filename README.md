@@ -76,8 +76,9 @@ Run the setup from the root directory
    ```
 
 
-<!-- USAGE EXAMPLES -->
+
 ## Usage
+
 
 You are now ready to use Mask RCNN. You can follow the Matterport guides and tutorials if you want. If you would rather get right into detecting flowers of *Dryas* in images, use the script TrainAndDetect.py. The script is used to initiate both training and detection.
 
