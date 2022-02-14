@@ -1,0 +1,1139 @@
+---
+title: "AutomaticFlowerPhenology_Figures"
+author: "Hjalte Mann, AU, TECOLOGYxyz, hjaltemrm@gmail.com"
+date: "27/11/2020"
+output: html_document
+---
+
+#```{r}
+#install.packages("installr")
+#library(installr)
+#updateR()
+#```
+# ```{r}
+# install.packages("devtools")
+# install.packages("ggfortify")
+# install.packages("ggplot2")
+# install.packages("plotly")
+# install.packages("cluster")
+# install.packages("tidyverse")
+# install.packages("factoextra")
+# install.packages("readxl")
+# install.packages("jpeg")
+# install.packages("grid")
+# install.packages("png")
+# install.packages("ggpubr")
+# install.packages("dbscan")
+# install.packages("lubridate")
+# install.packages("stringr")
+# install.packages("exifr")
+# install.packages("reticulate")
+# install.packages("knitr")
+# install.packages("kableExtra")
+# install.packages("gganimate")
+# install.packages("RColorBrewer")
+# install.packages("ggstance")
+# install.packages("dplyr")
+# ```
+
+
+```{r setup, include=FALSE}
+library(devtools)
+library(ggfortify)
+library(ggplot2)
+library(plotly)
+library(cluster)
+library(tidyverse)
+library(factoextra)
+library(readxl)
+library(jpeg)
+library(grid)
+library(png)
+library(ggpubr)
+library(dbscan)
+library(lubridate)
+library(stringr)
+library(exifr)
+library(reticulate)
+library(knitr)
+library(kableExtra)
+library(gganimate)
+library(RColorBrewer)
+library(ggstance)
+library(dplyr)
+library(gridExtra) # Multiplotting
+library(tidytext) # For reordering within groups
+
+knitr::opts_chunk$set(echo = F)
+```
+
+# Phenology metrics from ground truth - all 20 series
+
+###
+# Camera codes for renaming for paper #
+
+NARS 2018
+
+NARS-01: A
+NARS-02: B
+NARS-03: C
+NARS-04: D
+NARS-05: E
+
+NARS 2019
+
+NARS-03: A
+NARS-13: B
+NARS-15: C
+NARS-17: D
+NARS-39: E
+
+THUL 2018
+
+THUL-01: A
+THUL-02: B
+THUL-03: C
+THUL-04: D
+THUL-08: E
+
+NYAA 2019
+
+NYAA-02: A
+NYAA-03: B
+NYAA-04: C
+NYAA-06: D
+NYAA-08: E
+###
+
+
+We have several files to work with in this script. First of all, we need the metadata for the image series so we can relate timestamps to the detections/annotations.
+We'll read the metadata files for 2018 and 2019 here and do a little wrangling. For example, we'll select only the 20 series that we used for the experiment.
+Output is a full metadata dataframe called metaFull.
+
+
+```{r}
+
+axisSize = 18
+legendTitleSize = 20
+legendTextSize = 18
+
+```
+
+
+```{r}
+# Metadata
+
+meta_2018 = read.csv("../data/DetectionPhenology_2018_Meta_Clean_Prepped.csv")
+colnames(meta_2018)[4] = "filename"
+
+meta_2018$CameraID <- gsub('NYALE', 'NYAA', meta_2018$CameraID)
+meta_2018$CameraID <- gsub('MARS', 'NARS', meta_2018$CameraID)
+meta_2018$filename <- gsub('NYALE', 'NYAA', meta_2018$filename)
+meta_2018$filename <- gsub('MARS', 'NARS', meta_2018$filename)
+
+meta_2018$filename = str_extract(meta_2018$filename, "[A-Z]{4,5}-[0-9]{2}_[0-9]{6}.JPG")
+meta_2018 = meta_2018[,c('filename','CameraID','DOY','Hour')]
+
+meta_2018 = meta_2018 %>% 
+  filter(CameraID %in% c("NARS-01", "NARS-02", "NARS-03", "THUL-02", "THUL-04", "THUL-08","NARS-05", "THUL-03", "NARS-04", "THUL-01"))
+meta_2018$Year = "2018"
+
+
+meta_2019 = read.csv("../data/DetectionPhenology_2019_Meta_Clean_Prepped.csv")
+colnames(meta_2019)[3] = "filename"
+
+meta_2019$filename <- gsub('NYALE', 'NYAA', meta_2019$filename)
+
+meta_2019$filename = str_extract(meta_2019$filename, "[A-Z]{4,5}-[0-9]{2}_[0-9]{6}.JPG")
+meta_2019 = meta_2019[,c('filename','CameraID','DOY','Hour')]
+meta_2019$CameraID <- gsub('NYALE', 'NYAA', meta_2019$CameraID)
+
+meta_2019 = meta_2019 %>% 
+  filter(CameraID %in% c("NARS-15", "NARS-17", "NARS-39", "NYAA-02", "NYAA-03", "NYAA-08", "NARS-03", "NYAA-06","NARS-13", "NYAA-04"))
+meta_2019$Year = "2019"
+
+metaFull = rbind(meta_2018, meta_2019)
+
+metaFull = metaFull %>% 
+  mutate(camYear = paste(CameraID, Year))
+
+metaFull = metaFull %>%
+  mutate(site = str_extract(CameraID, regex("[A-Z]{4}")), siteYear = paste(site, Year))
+
+# Remove some dataframes we will not use.
+rm(meta_2018, meta_2019)
+```
+
+For some plots we also need to know the limits of the flowering season. These are identified by image. Let's read that file and do a bit of wrangling to prepare it.
+
+```{r}
+borderImages = read.csv("../data/NorwayAnnotations_BorderImagesMetadataClean.csv", header = T)
+
+borderImages$CameraID <- gsub('MARS', 'NARS', borderImages$CameraID)
+borderImages$CameraID <- gsub('NYALE', 'NYAA', borderImages$CameraID)
+
+borderImages = borderImages %>%
+  mutate(site = str_extract(CameraID, regex("[A-Z]{4}")), siteYear = paste(site, year), camYear = paste(CameraID, year))
+
+borderImagesLow = borderImages %>% 
+  group_by(camYear) %>% 
+  filter(DOY == min(DOY)) %>% 
+  mutate(timeFirstFlower = DOY+(Hour/24))
+
+borderImagesHigh = borderImages %>% 
+  group_by(camYear) %>% 
+  filter(DOY == max(DOY)) %>% 
+  mutate(timeLastFlower = DOY+(Hour/24))
+
+borderImages = rbind(borderImagesLow, borderImagesHigh)
+
+borderImages = borderImages %>% 
+  mutate(time = DOY+(Hour/24))
+
+borderImages = borderImages %>% 
+  mutate(camCode = case_when(camYear == "NARS-01 2018"~ "A", camYear == "NARS-02 2018"~ "B", camYear == "NARS-03 2018"~ "C", camYear == "NARS-04 2018"~ "D", camYear == "NARS-05 2018"~ "E", camYear == "THUL-01 2018"~ "A", camYear == "THUL-02 2018"~ "B", camYear == "THUL-03 2018"~ "C", camYear == "THUL-04 2018"~ "D", camYear == "THUL-08 2018"~ "E", camYear == "NARS-03 2019"~ "A", camYear == "NARS-13 2019"~ "B", camYear == "NARS-15 2019"~ "C", camYear == "NARS-17 2019"~ "D", camYear == "NARS-39 2019"~ "E", camYear == "NYAA-02 2019"~ "A", camYear == "NYAA-03 2019"~ "B", camYear == "NYAA-04 2019"~ "C", camYear == "NYAA-06 2019"~ "D", camYear == "NYAA-08 2019"~ "E" ))
+
+borderImages = borderImages %>% 
+  mutate(camCodeYear = paste(siteYear, camCode))
+```
+
+
+We'll also need the flower annotations made for the 20 series. We call these the ground truth. We read them for the 12 training series, the 4 validation series, and each of the 4 test series, respectively.
+We end up with a full ground truth dataframe called gtFull.
+
+```{r}
+# Ground truth annotations
+
+gtTrain = read.csv("../data/NorwayAnnotations_Train_VIAtocsv_FRCNN.csv", header = F)
+
+colnames(gtTrain) = c("filename", "x_min", "y_min", "x_max", "y_max", "Class")
+
+gtTrain$filename <- gsub('MARS', 'NARS', gtTrain$filename)
+gtTrain$filename <- gsub('NYALE', 'NYAA', gtTrain$filename)
+
+## Create column with image number
+gtTrain = gtTrain %>%
+  mutate(CameraID = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}")),
+         filename = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}_\\d{6}.JPG")))
+
+gtTrain$Year[gtTrain$CameraID %in% c("NARS-01", "NARS-02", "NARS-03", "THUL-02", "THUL-04", "THUL-08")] = "2018"
+gtTrain$Year[gtTrain$CameraID %in% c("NARS-15", "NARS-17", "NARS-39", "NYAA-02", "NYAA-03", "NYAA-08")] = "2019"
+gtTrain = gtTrain %>% 
+  mutate(camYear = paste(CameraID, Year))
+
+gtVal = read.csv("../data/NorwayAnnotations_Val_VIAtocsv_FRCNN.csv", header = F)
+
+colnames(gtVal) = c("filename", "x_min", "y_min", "x_max", "y_max", "Class")
+
+gtVal$filename <- gsub('NYALE', 'NYAA', gtVal$filename)
+
+## Create column with image number
+gtVal = gtVal %>%
+  mutate(CameraID = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}")),
+         filename = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}_\\d{6}.JPG")))
+
+gtVal$Year[gtVal$CameraID %in% c("NARS-05", "THUL-03")] = "2018"
+gtVal$Year[gtVal$CameraID %in% c("NARS-03", "NYAA-06")] = "2019"
+gtVal = gtVal %>% 
+  mutate(camYear = paste(CameraID, Year))
+
+## Get ground truth bbs - THUL 01
+THUL01_annotated = read.csv("../data/annotation_data/2020_05_15_NorwayAnnotations_THUL-01_IndividualAnnotations_FRCNN.csv", header = F)
+
+colnames(THUL01_annotated) = c("filename", "x_min", "y_min", "x_max", "y_max", "Class")
+
+## Create column with image number
+THUL01_annotated = THUL01_annotated %>%
+  mutate(CameraID = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}")),
+         filename = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}_\\d{6}.JPG")))
+
+#################################
+
+## Get ground truth bbs - NARS 04
+NARS04_annotated = read.csv("../data/annotation_data/2020_05_17_NorwayAnnotations_NARS-04_IndividualAnnotations_FRCNN.csv", header = F)
+
+colnames(NARS04_annotated) = c("filename", "x_min", "y_min", "x_max", "y_max", "Class")
+
+## Create column with image number
+NARS04_annotated = NARS04_annotated %>%
+  mutate(CameraID = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}")),
+         filename = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}_\\d{6}.JPG")))
+
+## Get ground truth bbs - THUL 01
+NYAA04_annotated = read.csv("../data/annotation_data/2020_05_23_NorwayAnnotations_NYAA-04_IndividualAnnotations_FRCNN.csv", header = F)
+
+colnames(NYAA04_annotated) = c("filename", "x_min", "y_min", "x_max", "y_max", "Class")
+NYAA04_annotated$filename <- gsub('NYALE', 'NYAA', NYAA04_annotated$filename)
+
+
+## Create column with image number
+NYAA04_annotated = NYAA04_annotated %>%
+  mutate(CameraID = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}")),
+         filename = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}_\\d{6}.JPG")))
+
+
+
+## Get ground truth bbs - THUL 01
+NARS13_annotated = read.csv("../data/annotation_data/2020_04_30_NorwayAnnotations_NARS13_IndividualAnnotations_FRCNN.csv", header = F)
+
+colnames(NARS13_annotated) = c("filename", "x_min", "y_min", "x_max", "y_max", "Class")
+
+## Create column with image number
+NARS13_annotated = NARS13_annotated %>%
+  mutate(CameraID = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}")),
+         filename = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}_\\d{6}.JPG")))
+
+
+gtTest = rbind(NARS04_annotated, NARS13_annotated, NYAA04_annotated, THUL01_annotated)
+gtTest$Year[gtTest$CameraID %in% c("NARS-04", "THUL-01")] = "2018"
+gtTest$Year[gtTest$CameraID %in% c("NARS-13", "NYAA-04")] = "2019"
+
+gtTest = gtTest %>% 
+  mutate(camYear = paste(CameraID, Year))
+
+gtFull = rbind(gtTrain, gtVal, gtTest)
+```
+
+
+Great, we now have the ground truth annotations and the corresponding metadata. We just need to merge the two. We'll call that dataframe gtFull. For the figures we'll use letters for the camera id's instead of the original camera number, to make it easier for the reader.
+
+```{r}
+metaFull = metaFull %>% 
+  select(-CameraID, -Year)
+         
+gtFull = merge(gtFull, metaFull, by = c("camYear", "filename"))
+gtFull = gtFull[,c('filename','x_min','y_min','x_max','y_max','CameraID','DOY','Hour', 'Year')]
+gtFull$time = gtFull$DOY + (gtFull$Hour/24)
+
+colnames(gtFull)[6] = "CameraID"
+colnames(gtFull)[9] = "Year"
+
+gtFull = gtFull %>%
+  group_by(Year,filename) %>%
+  mutate(Count = n())
+
+gtFull = gtFull %>%
+  mutate(Site = str_extract(CameraID, regex("[A-Z]{4}")), siteYear = paste(Site, Year), camYear = paste(CameraID, Year))
+
+####
+# Give camera id codes
+####
+
+gtFull = gtFull %>% 
+  mutate(camCode = case_when(camYear == "NARS-01 2018"~ "A", camYear == "NARS-02 2018"~ "B", camYear == "NARS-03 2018"~ "C", camYear == "NARS-04 2018"~ "D", camYear == "NARS-05 2018"~ "E", camYear == "THUL-01 2018"~ "A", camYear == "THUL-02 2018"~ "B", camYear == "THUL-03 2018"~ "C", camYear == "THUL-04 2018"~ "D", camYear == "THUL-08 2018"~ "E", camYear == "NARS-03 2019"~ "A", camYear == "NARS-13 2019"~ "B", camYear == "NARS-15 2019"~ "C", camYear == "NARS-17 2019"~ "D", camYear == "NARS-39 2019"~ "E", camYear == "NYAA-02 2019"~ "A", camYear == "NYAA-03 2019"~ "B", camYear == "NYAA-04 2019"~ "C", camYear == "NYAA-06 2019"~ "D", camYear == "NYAA-08 2019"~ "E" ))
+
+gtFull = gtFull %>% 
+  mutate(camCodeYear = paste(siteYear, camCode))
+```
+
+
+In the suppl. mat. we'll include the cummulative sum plots for all series.
+```{r}
+
+####
+# Cummulative
+####
+
+###
+# SM Figure 2
+###
+
+sfig2 = gtFull %>%
+  group_by(camYear) %>%
+  arrange(time) %>%
+  mutate(cumcount = cumsum(Count)/sum(Count)) %>%
+  ggplot() + 
+ geom_line(aes(x = time, y = cumcount)) + 
+  geom_hline(aes(yintercept = 0.1), linetype = "longdash") +
+  geom_hline(aes(yintercept = 0.5), linetype = "longdash") +
+  geom_hline(aes(yintercept = 0.9), linetype = "longdash") +
+  ylab("Cumulative sum of flowers") +
+  facet_wrap(~camCodeYear) + 
+  theme(legend.position = "None") + 
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.title = element_text(size=legendTitleSize),
+        text = element_text(size=axisSize),
+        legend.text = element_text(size=legendTextSize),
+        axis.line = element_line(colour = "black"),
+        axis.text=element_text(colour="black"))
+
+sfig2
+```
+
+We calculate onset, peak and end of flowering season as the closest measuring point to 10%, 50%, 90% of flowering (based on the cummulative sums).
+
+```{r}
+
+####
+# Phenology metrics
+####
+
+gtFullCumcount = gtFull %>%
+  group_by(camYear) %>%
+  arrange(time) %>%
+  mutate(cumcount = cumsum(Count)/sum(Count))
+
+gtFullCumcount_one = gtFullCumcount %>%
+  group_by(camYear) %>%
+  filter(abs(cumcount - 0.1) == min(abs(cumcount - 0.1))) %>%
+  distinct(camYear, .keep_all = T)
+
+gtFullCumcount_two = gtFullCumcount %>%
+  group_by(camYear) %>%
+  filter(abs(cumcount - 0.5) == min(abs(cumcount - 0.5))) %>%
+  distinct(camYear, .keep_all = T)
+
+
+gtFullCumcount_three = gtFullCumcount %>%
+  group_by(camYear) %>%
+  filter(abs(cumcount - 0.9) == min(abs(cumcount - 0.9))) %>%
+  distinct(camYear, .keep_all = T)
+
+
+gtFullCumcount = gtFullCumcount_one %>%
+  mutate(Variable = "Onset flowering") %>%
+  bind_rows(mutate(gtFullCumcount_two, Variable = "Peak flowering")) %>%
+  bind_rows(mutate(gtFullCumcount_three, Variable = "End flowering"))
+
+
+####
+# Give camera id codes
+####
+
+gtFullCumcount = gtFullCumcount %>% 
+  mutate(camCode = case_when(camYear == "NARS-01 2018"~ "A", camYear == "NARS-02 2018"~ "B", camYear == "NARS-03 2018"~ "C", camYear == "NARS-04 2018"~ "D", camYear == "NARS-05 2018"~ "E", camYear == "THUL-01 2018"~ "A", camYear == "THUL-02 2018"~ "B", camYear == "THUL-03 2018"~ "C", camYear == "THUL-04 2018"~ "D", camYear == "THUL-08 2018"~ "E", camYear == "NARS-03 2019"~ "A", camYear == "NARS-13 2019"~ "B", camYear == "NARS-15 2019"~ "C", camYear == "NARS-17 2019"~ "D", camYear == "NARS-39 2019"~ "E", camYear == "NYAA-02 2019"~ "A", camYear == "NYAA-03 2019"~ "B", camYear == "NYAA-04 2019"~ "C", camYear == "NYAA-06 2019"~ "D", camYear == "NYAA-08 2019"~ "E" ))
+
+```
+
+
+```{r}
+colnames(borderImages)[which(names(borderImages) == "year")] <- "Year"
+
+borderImages$camCode = ordered(borderImages$camCode, levels = c("E", "C", "B", "D", "A"))
+gtFullCumcount$camCode = ordered(gtFullCumcount$camCode, levels = c("A", "B", "C", "D", "E"))
+gtFull$camCode = ordered(gtFull$camCode, levels = c("A", "B", "C", "D", "E"))
+```
+
+Figure 2 will show the extracted phenology metrics from each series.
+
+```{r}
+##
+# Figure 2
+##
+
+#Change order of metrics for the plot
+gtFullCumcount$Variable <- factor(gtFullCumcount$Variable, levels = c("Onset flowering", "Peak flowering", "End flowering"))
+
+borderImages$Variable = "First/last flower"
+
+gtFullCumcount = gtFullCumcount %>% 
+  mutate(camCodeOrder = case_when(camCode == "A"~ "5",camCode == "B"~ "4",camCode == "C"~ "3",camCode == "D"~ "2",camCode == "E"~ "1"))
+
+
+borderImages = borderImages %>% 
+  mutate(camCodeOrder = case_when(camCode == "A"~ "5",camCode == "B"~ "4",camCode == "C"~ "3",camCode == "D"~ "2",camCode == "E"~ "1"))
+
+
+gtFullCumcount2 = gtFullCumcount %>%
+    mutate(camCode = reorder_within(camCode, as.numeric(camCodeOrder), siteYear))
+
+borderImages2 = borderImages %>%
+    mutate(camCode = reorder_within(camCode, as.numeric(camCodeOrder), siteYear))
+
+
+ fig3 = ggplot() +
+  geom_point(data = gtFullCumcount2, aes(x = time, y = reorder(camCode, desc(camCode)), color = Variable, group = Variable, shape = Variable),size = 2) +
+  geom_point(data = borderImages2, aes(x = timeFirstFlower, y = reorder(camCode, desc(camCode))), size = 1.2) +
+  geom_point(data = borderImages2, aes(x = timeLastFlower, y = reorder(camCode, desc(camCode))), size = 1.2) +
+  scale_y_reordered() +
+  scale_shape_manual(values=c(15, 16, 17)) +
+  scale_color_manual(values=c("green", "blue", "red", "black")) +
+  xlab("DOY") + 
+  ylab("Camera ID") +
+  labs(title ="a") +
+  facet_grid(vars(siteYear), scale = "free_y") +
+  theme_bw() + 
+  theme(panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.title = element_text(size=legendTitleSize),
+        text = element_text(size=axisSize),
+        legend.text = element_text(size = legendTextSize),
+        axis.text=element_text(colour="black"),
+        panel.spacing.y = unit(0.7, "lines"))
+fig3
+```
+
+
+We have shown that we can extract phenology data from the images + annotations. Now we will present the results from the automatic flower detections.
+
+```{r warning=F}
+# Get the Mask RCNN flower detections (NewFormat)
+dt_sampled = read.csv("../data/dtSampledTest.csv", header =F)
+
+colnames(dt_sampled) = c("filename", "x_min", "y_min", "x_max", "y_max")
+
+dt_sampled$filename <- gsub('NYALE', 'NYAA', dt_sampled$filename)
+dt_sampled$filename <- gsub('MARS', 'NARS', dt_sampled$filename)
+
+# Do the detection counting for each image. The detection where all coordinates == 0 are images where no detection are made, so the count should be 0. We cannot just remove these rows because we need the sample point.
+t = dt_sampled %>%
+  filter(dt_sampled$x_min == "0" & dt_sampled$y_min == "0" & dt_sampled$x_max == "0" & dt_sampled$y_max == "0") %>%
+  mutate(Count = 0)
+
+
+k = dt_sampled %>%
+  filter(!(dt_sampled$x_min == "0" & dt_sampled$y_min == "0" & dt_sampled$x_max == "0" & dt_sampled$y_max == "0")) %>%
+  group_by(filename) %>%
+  mutate(Count = n())
+
+dt_sampled = bind_rows(t,k)
+
+dt_sampled$filename = str_extract(dt_sampled$filename, "[A-Z]{4,5}-[0-9]{2}_[0-9]{6}.JPG")
+dt_sampled$Type = "Detections (sampled)"
+
+dt_sampled = dt_sampled %>%
+  mutate(CameraID = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}")))
+
+dt_sampled$year[dt_sampled$CameraID == "NARS-04"] = "2018"
+dt_sampled$year[dt_sampled$CameraID == "NARS-13"] = "2019"
+dt_sampled$year[dt_sampled$CameraID == "NYAA-04"] = "2019"
+dt_sampled$year[dt_sampled$CameraID == "THUL-01"] = "2018"
+
+dt_sampled = dt_sampled %>%
+  mutate(site = str_extract(CameraID, regex("[A-Z]{4}")), siteYear = paste(site, year))
+
+
+dt_sampled = dt_sampled %>% 
+  mutate(camYear = paste(CameraID, year))
+
+dt_sampled = dt_sampled %>% 
+  mutate(camCode = case_when(camYear == "NARS-01 2018"~ "A", camYear == "NARS-02 2018"~ "B", camYear == "NARS-03 2018"~ "C", camYear == "NARS-04 2018"~ "D", camYear == "NARS-05 2018"~ "E", camYear == "THUL-01 2018"~ "A", camYear == "THUL-02 2018"~ "B", camYear == "THUL-03 2018"~ "C", camYear == "THUL-04 2018"~ "D", camYear == "THUL-08 2018"~ "E", camYear == "NARS-03 2019"~ "A", camYear == "NARS-13 2019"~ "B", camYear == "NARS-15 2019"~ "C", camYear == "NARS-17 2019"~ "D", camYear == "NARS-39 2019"~ "E", camYear == "NYAA-02 2019"~ "A", camYear == "NYAA-03 2019"~ "B", camYear == "NYAA-04 2019"~ "C", camYear == "NYAA-06 2019"~ "D", camYear == "NYAA-08 2019"~ "E" ))
+
+dt_sampled = merge(dt_sampled, subset(metaFull, select = -c(camYear, siteYear, site)), by = "filename")
+
+dt_sampled = dt_sampled %>% 
+  mutate(time = DOY+(Hour/24))
+
+
+dt_sampledSum = dt_sampled %>% 
+  group_by(camYear) %>% 
+  distinct(filename) %>% 
+  summarise(c = n(), fn = first(filename))
+
+
+dt_sampled = dt_sampled %>% 
+  select(time, Count, siteYear, Type, camYear, camCode,DOY)
+
+
+```
+
+
+```{r warning=F}
+### Subset the ground truth to get only the four test series
+gtFullTest = gtFull %>% 
+  filter(camYear %in% c("NARS-04 2018", "NARS-13 2019", "THUL-01 2018", "NYAA-04 2019"))
+
+gtFullTest = gtFullTest %>% 
+  mutate(time = DOY+(Hour/24))
+
+gtFullTest = gtFullTest %>% 
+  mutate(camYear = paste(CameraID, Year))
+
+gtFullTest = gtFullTest %>% 
+  mutate(camCode = case_when(camYear == "NARS-01 2018"~ "A", camYear == "NARS-02 2018"~ "B", camYear == "NARS-03 2018"~ "C", camYear == "NARS-04 2018"~ "D", camYear == "NARS-05 2018"~ "E", camYear == "THUL-01 2018"~ "A", camYear == "THUL-02 2018"~ "B", camYear == "THUL-03 2018"~ "C", camYear == "THUL-04 2018"~ "D", camYear == "THUL-08 2018"~ "E", camYear == "NARS-03 2019"~ "A", camYear == "NARS-13 2019"~ "B", camYear == "NARS-15 2019"~ "C", camYear == "NARS-17 2019"~ "D", camYear == "NARS-39 2019"~ "E", camYear == "NYAA-02 2019"~ "A", camYear == "NYAA-03 2019"~ "B", camYear == "NYAA-04 2019"~ "C", camYear == "NYAA-06 2019"~ "D", camYear == "NYAA-08 2019"~ "E" ))
+
+
+
+gtFullTest = gtFullTest %>% 
+  ungroup() %>% 
+  mutate(Type = "Ground truth (sampled)") %>% 
+  select(time, siteYear, Count, Type, camYear, camCode, DOY)
+
+dtGt = rbind(gtFullTest, dt_sampled)
+dtGt = dtGt %>% 
+  mutate(camCodeYear = paste(siteYear, camCode))
+
+
+ggplot(dtGt) + 
+  geom_point(aes(x=time, y = Count, colour = Type), size = 0.4) + 
+ geom_line(aes(x=time, y = Count, colour = Type), size = 0.3) + 
+ ylab("Number of flowers detected/annotated flowers") + 
+  xlab("DOY") +
+ facet_grid(vars(camCodeYear), scales="free") +
+  theme_bw() + 
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        legend.title = element_text(size=legendTitleSize),
+        text = element_text(size=axisSize),
+        legend.text = element_text(size = legendTextSize)) +
+ guides(color=guide_legend("Type"),
+        axis.text=element_text(colour="black")) 
+
+```
+
+
+Figure 4 shows the detections compared to the annotations (mean over the day)
+```{r warning=F}
+###
+# Mean count
+###
+
+dtGt = dtGt %>% 
+  group_by(Type, siteYear, DOY) %>% 
+  mutate(meanCount = mean(Count))
+
+
+fig4 = ggplot(dtGt) + 
+  geom_point(aes(x=DOY, y = meanCount, colour = Type, shape = Type), size = 1.2) + 
+  geom_line(aes(x=DOY, y = meanCount, colour = Type), size = 0.3) + 
+  ylab("Number of flowers detected/annotated") + 
+  xlab("DOY") +
+  facet_grid(vars(camCodeYear), scales="free") +
+  theme_bw() +
+  guides(color=guide_legend("Type")) + 
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        legend.title = element_text(size=legendTitleSize),
+        text = element_text(size=axisSize),
+        legend.text = element_text(size = legendTextSize),
+        axis.text=element_text(colour="black")) +
+  scale_color_brewer(palette="Dark2")
+  #scale_colour_manual(values=c("#56B4E9","#999999", "#E69F00"))
+
+fig4
+```
+
+
+
+```{r warning=F}
+####
+## Cummulative detections vs sampled detections vs ground truth
+####
+
+# Load in the detections on the full 1-hr test series and do the counting
+
+# Get the Mask RCNN detection (NewFormat)
+dtOneHour = read.csv("../data/submit_boxes_NewFormat.csv", header =F)
+colnames(dtOneHour) = c("filename", "x_min", "y_min", "x_max", "y_max")
+
+dtOneHour$filename <- gsub('NYALE', 'NYAA', dtOneHour$filename)
+
+# Do the detection counting for each image. The detection where all coordinates == 0 are images where no detection are made, so the count should be 0
+t1 = dtOneHour %>%
+  filter(dtOneHour$x_min == "0" & dtOneHour$y_min == "0" & dtOneHour$x_max == "0" & dtOneHour$y_max == "0") %>%
+  mutate(Count = 0)
+
+
+k1 = dtOneHour %>%
+  filter(!(dtOneHour$x_min == "0" & dtOneHour$y_min == "0" & dtOneHour$x_max == "0" & dtOneHour$y_max == "0")) %>%
+  group_by(filename) %>%
+  mutate(Count = n())
+
+dtOneHour = bind_rows(k1,t1)
+
+
+# Merge the detections with the metadata file to get timestamps
+dtOneHourMeta = merge(dtOneHour, metaFull, by = "filename")
+dtOneHourMeta$time = dtOneHourMeta$DOY + (dtOneHourMeta$Hour/24)
+dtOneHourMeta$Type = "Detections (1-hr series)"
+
+# Put in the camera codes
+
+dtOneHourMeta = dtOneHourMeta %>% 
+  mutate(camCode = case_when(camYear == "NARS-01 2018"~ "A", camYear == "NARS-02 2018"~ "B", camYear == "NARS-03 2018"~ "C", camYear == "NARS-04 2018"~ "D", camYear == "NARS-05 2018"~ "E", camYear == "THUL-01 2018"~ "A", camYear == "THUL-02 2018"~ "B", camYear == "THUL-03 2018"~ "C", camYear == "THUL-04 2018"~ "D", camYear == "THUL-08 2018"~ "E", camYear == "NARS-03 2019"~ "A", camYear == "NARS-13 2019"~ "B", camYear == "NARS-15 2019"~ "C", camYear == "NARS-17 2019"~ "D", camYear == "NARS-39 2019"~ "E", camYear == "NYAA-02 2019"~ "A", camYear == "NYAA-03 2019"~ "B", camYear == "NYAA-04 2019"~ "C", camYear == "NYAA-06 2019"~ "D", camYear == "NYAA-08 2019"~ "E" ))
+
+
+dtOneHourMeta = dtOneHourMeta %>% 
+  mutate(camCodeYear = paste(siteYear, camCode))
+
+dtDtFullGt = rbind(dtGt, dtOneHourMeta)
+
+```
+
+
+Since the image series can go on for a long time before and after the actual flower season, we'll manually cap them at maximum 50% of the length of the flowering season to each side.
+
+```{r}
+
+# ### 
+# # We'll cap the series to contain at maximum the flower season length +- 50%.
+# 
+# #2018 NARS 04
+NARS04_length = borderImagesHigh$timeLastFlower[borderImagesHigh$camYear == "NARS-04 2018"] - borderImagesLow$timeFirstFlower[borderImagesLow$camYear == "NARS-04 2018"]
+# 
+NARS04_length_25 = (NARS04_length/100)*50
+# 
+NARS04_min = borderImagesLow$timeFirstFlower[borderImagesLow$camYear == "NARS-04 2018"] - NARS04_length_25
+NARS04_max = borderImagesHigh$timeLastFlower[borderImagesHigh$camYear == "NARS-04 2018"] + NARS04_length_25
+# 
+# #2018 THUL 01
+THUL01_length = borderImagesHigh$timeLastFlower[borderImagesHigh$camYear == "THUL-01 2018"] - borderImagesLow$timeFirstFlower[borderImagesLow$camYear == "THUL-01 2018"]
+# 
+THUL01_length_25 = (THUL01_length/100)*50
+# 
+THUL01_min = borderImagesLow$timeFirstFlower[borderImagesLow$camYear == "THUL-01 2018"] - THUL01_length_25
+THUL01_max = borderImagesHigh$timeLastFlower[borderImagesHigh$camYear == "THUL-01 2018"] + THUL01_length_25
+# 
+#2019 NARS 13
+NARS13_length = borderImagesHigh$timeLastFlower[borderImagesHigh$camYear == "NARS-13 2019"] - borderImagesLow$timeFirstFlower[borderImagesLow$camYear == "NARS-13 2019"]
+# 
+ NARS13_length_25 = (NARS13_length/100)*50
+# 
+NARS13_min = borderImagesLow$timeFirstFlower[borderImagesLow$camYear == "NARS-13 2019"] - NARS13_length_25
+NARS13_max = borderImagesHigh$timeLastFlower[borderImagesHigh$camYear == "NARS-13 2019"] + NARS13_length_25
+
+ 
+# #2019 NYAA 04
+NYAA04_length = borderImagesHigh$timeLastFlower[borderImagesHigh$camYear == "NYAA-04 2019"] - borderImagesLow$timeFirstFlower[borderImagesLow$camYear == "NYAA-04 2019"]
+# 
+NYAA04_length_25 = (NYAA04_length/100)*50
+# 
+NYAA04_min = borderImagesLow$timeFirstFlower[borderImagesLow$camYear == "NYAA-04 2019"] - NYAA04_length_25
+NYAA04_max = borderImagesHigh$timeLastFlower[borderImagesHigh$camYear == "NYAA-04 2019"] + NYAA04_length_25
+
+
+# #Cut dataframe
+NARS04_dt = dtOneHourMeta[dtOneHourMeta$camYear == "NARS-04 2018" ,]
+NARS04_dt = NARS04_dt[NARS04_dt$time > NARS04_min & NARS04_dt$time < NARS04_max,]
+# 
+THUL01_dt = dtOneHourMeta[dtOneHourMeta$camYear == "THUL-01 2018",]
+THUL01_dt = THUL01_dt[THUL01_dt$time > THUL01_min & THUL01_dt$time < THUL01_max,]
+# 
+NARS13_dt = dtOneHourMeta[dtOneHourMeta$camYear == "NARS-13 2019",]
+NARS13_dt = NARS13_dt[NARS13_dt$time > NARS13_min & NARS13_dt$time < NARS13_max,]
+# 
+NYAA04_dt = dtOneHourMeta[dtOneHourMeta$camYear == "NYAA-04 2019",]
+NYAA04_dt = NYAA04_dt[NYAA04_dt$time > NYAA04_min & NYAA04_dt$time < NYAA04_max,]
+# 
+dtOneHourMetaLimit = rbind(NARS04_dt, THUL01_dt, NARS13_dt, NYAA04_dt)
+```
+
+```{r fig.width=12}
+#  fig.width=10
+
+dtDtFullGtLimit = rbind(dtGt, dtOneHourMetaLimit)
+
+fig5 = dtDtFullGtLimit %>%
+  group_by(Type, camCodeYear) %>%
+  arrange(time) %>%
+  mutate(cumcount = cumsum(Count)/sum(Count)) %>%
+  ggplot() + 
+ geom_line(aes(x = time, y = cumcount, colour = Type), size = 1) + 
+  geom_hline(aes(yintercept = 0.1), linetype = "longdash") +
+  geom_hline(aes(yintercept = 0.5), linetype = "longdash") +
+  geom_hline(aes(yintercept = 0.9), linetype = "longdash") +
+  facet_wrap(vars(camCodeYear), scales = "free_x") + 
+  ylab("Cummulative number of flowers annotated/detected") +
+  xlab("DOY") +
+  labs(title = "b") +
+  theme_bw() + 
+  theme(legend.position = "None",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        legend.title = element_text(size=legendTitleSize),
+        text = element_text(size=axisSize+5),
+        legend.text = element_text(size = legendTextSize),
+        panel.spacing = unit(2, "lines"),
+        axis.text=element_text(colour="black"),
+        strip.text = element_text(size=25)) +
+  scale_color_brewer(palette="Dark2")
+
+fig5
+```
+
+
+```{r}
+
+ggplot(dtDtFullGtLimit) + 
+  geom_point(aes(x=DOY, y = meanCount, colour = Type, shape = Type), size = 1.2) + 
+  geom_line(aes(x=DOY, y = meanCount, colour = Type), size = 0.3) + 
+  ylab("Number of flowers detected/annotated") + 
+  xlab("DOY") +
+  facet_grid(vars(camCodeYear), scales="free") +
+  theme_bw() +
+  guides(color=guide_legend("Type")) + 
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        legend.title = element_text(size=legendTitleSize),
+        text = element_text(size=axisSize),
+        legend.text = element_text(size = legendTextSize),
+        axis.text=element_text(colour="black")) +
+  scale_color_brewer(palette="Dark2")
+
+
+ggplot(dtDtFullGt) + 
+  geom_point(aes(x=DOY, y = Count, colour = Type, shape = Type), size = 1.2) + 
+  geom_line(aes(x=DOY, y = Count, colour = Type), size = 0.3) + 
+  ylab("Number of flowers detected/annotated") + 
+  xlab("DOY") +
+  facet_grid(vars(camCodeYear), scales="free") +
+  theme_bw() +
+  guides(color=guide_legend("Type")) + 
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        legend.title = element_text(size=legendTitleSize),
+        text = element_text(size=axisSize),
+        legend.text = element_text(size = legendTextSize),
+        axis.text=element_text(colour="black")) +
+  scale_color_brewer(palette="Dark2")
+
+
+```
+
+
+```{r}
+borderImagesTest = borderImages %>% 
+  filter(camCodeYear %in% c("NARS 2018 D", "NARS 2019 B", "NYAA 2019 C", "THUL 2018 A"))
+
+sfig_3b = ggplot(dtDtFullGtLimit) + 
+  geom_point(aes(x=time, y = Count, colour = Type), size = 0.4) + 
+  geom_line(aes(x=time, y = Count, colour = Type), size = 0.3) + 
+  geom_vline(data = borderImagesTest, aes(xintercept = timeFirstFlower), linetype = "dashed", size = 0.5) +
+  geom_vline(data = borderImagesTest, aes(xintercept = timeLastFlower), linetype = "dashed", size = 0.5) +
+  ylab("Number of flowers detected/annotated") + 
+  xlab("DOY") +
+  facet_wrap(vars(camCodeYear), scales="free") +
+  theme_bw() + 
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        legend.title = element_text(size=legendTitleSize),
+        text = element_text(size=axisSize),
+        legend.text = element_text(size=legendTextSize),
+        axis.text=element_text(colour="black")) +
+  guides(color=guide_legend("Type")) +
+  scale_color_brewer(palette="Dark2")
+
+sfig_3b
+```
+
+```{r width = 16}
+
+dtDtFullGtLimit = dtDtFullGtLimit %>% 
+  group_by(Type, camYear, DOY) %>% 
+  mutate(meanCount = mean(Count))
+
+
+fig4 = 
+  dtDtFullGtLimit %>% 
+  ggplot() + 
+  geom_point(aes(x=DOY, y = meanCount, colour = Type, shape = Type), size = 1.8) + 
+  geom_line(aes(x=DOY, y = meanCount, colour = Type), size = 1) + 
+  geom_vline(data = borderImagesTest, aes(xintercept = DOY), linetype = "dashed", size = 0.8) +
+  ylab("Mean number of flowers detected/annotated per day") + 
+  xlab("DOY") +
+  labs(title = "a") +
+  facet_wrap(vars(camCodeYear), scales="free") +
+  theme_bw() +
+  guides(color=guide_legend("Type")) + 
+  theme( panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        legend.title = element_text(size=legendTitleSize),
+        text = element_text(size=axisSize+5),
+        legend.text = element_text(size=legendTextSize),
+        axis.text=element_text(colour="black"),
+        strip.text = element_text(size=25)) +
+  scale_color_brewer(palette="Dark2")
+
+fig4
+```
+
+Combine figures
+```{r fig.width = 30, fig.height=6}
+m2 = grid.arrange(fig4, fig5, ncol=2, widths = unit(c(350,200), c("mm", "mm"))) # Figure 4ab in paper
+```
+
+
+
+```{r}
+#  fig.height=3, fig.width=8
+
+dtDtFullGtLimit
+
+
+dtDtFullGtLimitCumcount = dtDtFullGtLimit %>%
+  group_by(Type, camYear) %>%
+  arrange(time) %>%
+  mutate(cumcount = cumsum(Count)/sum(Count))
+
+dtDtFullGtLimitCumcount_one = dtDtFullGtLimitCumcount %>%
+  group_by(Type, camYear) %>%
+  filter(abs(cumcount - 0.1) == min(abs(cumcount - 0.1))) %>%
+  distinct(camYear, .keep_all = T)
+
+dtDtFullGtLimitCumcount_two = dtDtFullGtLimitCumcount %>%
+  group_by(Type, camYear) %>%
+  filter(abs(cumcount - 0.5) == min(abs(cumcount - 0.5))) %>%
+  distinct(camYear, .keep_all = T)
+
+
+dtDtFullGtLimitCumcount_three = dtDtFullGtLimitCumcount %>%
+  group_by(Type, camYear) %>%
+  filter(abs(cumcount - 0.9) == min(abs(cumcount - 0.9))) %>%
+  distinct(camYear, .keep_all = T)
+
+
+dtDtFullGtLimitCumcount = dtDtFullGtLimitCumcount_one %>%
+  mutate(Variable = "Onset flowering") %>%
+  bind_rows(mutate(dtDtFullGtLimitCumcount_two, Variable = "Peak flowering")) %>%
+  bind_rows(mutate(dtDtFullGtLimitCumcount_three, Variable = "End flowering"))
+
+
+```
+
+Deviations
+```{r}
+# Onset - Ground truth vs detections (sampled)
+
+gtOnset = 
+dtDtFullGtLimitCumcount %>% 
+  ungroup() %>% 
+  filter(Type == "Ground truth (sampled)", Variable == "Onset flowering")
+
+dtSampledOnset = 
+dtDtFullGtLimitCumcount %>% 
+  ungroup() %>% 
+  filter(Type == "Detections (sampled)", Variable == "Onset flowering")
+
+
+diffGtDtSampledOnset = abs((gtOnset$time * 24)-(dtSampledOnset$time * 24))
+diffGtDtSampledOnsetMean = mean(diffGtDtSampledOnset)
+diffGtDtSampledOnsetSD = sd(diffGtDtSampledOnset)
+
+diffGtDtSampledOnsetMean
+diffGtDtSampledOnsetSD
+
+#
+
+# Peak - Ground truth vs detections (sampled)
+
+gtPeak = 
+dtDtFullGtLimitCumcount %>% 
+  ungroup() %>% 
+  filter(Type == "Ground truth (sampled)", Variable == "Peak flowering")
+
+dtSampledPeak = 
+dtDtFullGtLimitCumcount %>% 
+  ungroup() %>% 
+  filter(Type == "Detections (sampled)", Variable == "Peak flowering")
+
+
+diffGtDtSampledPeak = abs((gtPeak$time * 24)-(dtSampledPeak$time * 24))
+diffGtDtSampledPeakMean = mean(diffGtDtSampledPeak)
+diffGtDtSampledPeakSD = sd(diffGtDtSampledPeak)
+
+diffGtDtSampledPeakMean
+diffGtDtSampledPeakSD
+
+#
+# End - Ground truth vs detections (sampled)
+
+gtEnd = 
+dtDtFullGtLimitCumcount %>% 
+  ungroup() %>% 
+  filter(Type == "Ground truth (sampled)", Variable == "End flowering")
+
+dtSampledEnd = 
+dtDtFullGtLimitCumcount %>% 
+  ungroup() %>% 
+  filter(Type == "Detections (sampled)", Variable == "End flowering")
+
+
+diffGtDtSampledEnd = abs((gtEnd$time * 24)-(dtSampledEnd$time * 24))
+diffGtDtSampledEndMean = mean(diffGtDtSampledEnd)
+diffGtDtSampledEndSD = sd(diffGtDtSampledEnd)
+
+diffGtDtSampledEndMean
+diffGtDtSampledEndSD
+
+####
+
+
+# Onset - Ground truth vs detections (1-hr)
+
+dtOnehourOnset = 
+dtDtFullGtLimitCumcount %>% 
+  ungroup() %>% 
+  filter(Type == "Detections (1-hr series)", Variable == "Onset flowering")
+
+
+diffGtDtOnehourOnset = abs((gtOnset$time * 24)-(dtOnehourOnset$time * 24))
+diffGtDtOnehourOnsetMean = mean(diffGtDtOnehourOnset)
+diffGtDtOnehourOnsetSD = sd(diffGtDtOnehourOnset)
+
+diffGtDtOnehourOnsetMean
+diffGtDtOnehourOnsetSD
+
+#
+
+# Peak - Ground truth vs detections (sampled)
+
+dtOnehourPeak = 
+dtDtFullGtLimitCumcount %>% 
+  ungroup() %>% 
+  filter(Type == "Detections (1-hr series)", Variable == "Peak flowering")
+
+
+diffGtDtOnehourPeak = abs((gtPeak$time * 24)-(dtOnehourPeak$time * 24))
+diffGtDtOnehourPeakMean = mean(diffGtDtOnehourPeak)
+diffGtDtOnehourPeakSD = sd(diffGtDtOnehourPeak)
+
+diffGtDtOnehourPeakMean
+diffGtDtOnehourPeakSD
+
+#
+# End - Ground truth vs detections (sampled)
+
+dtOnehourEnd = 
+dtDtFullGtLimitCumcount %>% 
+  ungroup() %>% 
+  filter(Type == "Detections (1-hr series)", Variable == "End flowering")
+
+
+diffGtDtOnehourEnd = abs((gtEnd$time * 24)-(dtOnehourEnd$time * 24))
+diffGtDtOnehourEndMean = mean(diffGtDtOnehourEnd)
+diffGtDtOnehourEndSD = sd(diffGtDtOnehourEnd)
+
+diffGtDtOnehourEndMean
+diffGtDtOnehourEndSD
+
+
+
+```
+
+
+Identify data gaps
+
+```{r fig.height=10}
+
+metaFull$time = metaFull$DOY + (metaFull$Hour/24)
+
+
+metaFullGaps = metaFull %>% 
+  distinct(camYear, time) %>% 
+  group_by(camYear) %>% 
+  arrange(time) %>% 
+  mutate(gap = (time - lag(time))*24)
+
+```
+
+
+
+```{r}
+gtFull = rbind(gtTrain, gtVal, gtTest)
+gtWithZeroes = read.csv("../data/GroundTruthAll_WithZeroes.csv", header = F)
+
+# gtWithZeroes contain duplicate images that were removed before training, so we need to use the gtFull which contains excactly the data used for train,val,test.
+# We'll find the images with zeroes in gtWithZeroes and add these to gtFull
+
+
+colnames(gtWithZeroes) = c("filename", "x_min", "y_min", "x_max", "y_max", "Class")
+
+gtWithZeroes$filename <- gsub('MARS', 'NARS', gtWithZeroes$filename)
+gtWithZeroes$filename <- gsub('NYALE', 'NYAA', gtWithZeroes$filename)
+
+## Create column with image number
+gtWithZeroes = gtWithZeroes %>%
+  mutate(CameraID = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}")),
+         Year = str_extract(filename, regex("201\\d{1}")),
+         filename = str_extract(filename, regex("[A-Z]{4,5}-\\d{0,3}_\\d{6}.JPG")),
+         camYear = paste(CameraID, Year))
+
+
+t = gtWithZeroes %>%
+  filter(gtWithZeroes$x_min == "0" & gtWithZeroes$y_min == "0" & gtWithZeroes$x_max == "0" & gtWithZeroes$y_max == "0") %>%
+  mutate(Count = 0)
+
+
+k = gtFull %>%
+  filter(!(gtFull$x_min == "0" & gtFull$y_min == "0" & gtFull$x_max == "0" & gtFull$y_max == "0")) %>%
+  group_by(camYear,filename) %>%
+  mutate(Count = n())
+
+gtFullWithZeroes = rbind(t,k)
+
+
+gtFullWithZeroes = merge(gtFullWithZeroes, metaFull, by = c("camYear", "filename"))
+
+gtFullWithZeroes = gtFullWithZeroes[,c('filename','x_min','y_min','x_max','y_max','CameraID','DOY','Hour', 'Year', 'Count', 'camYear', 'siteYear')]
+gtFullWithZeroes$time = gtFullWithZeroes$DOY + (gtFullWithZeroes$Hour/24)
+
+
+gtFullWithZeroes = gtFullWithZeroes %>% 
+  mutate(camCode = case_when(camYear == "NARS-01 2018"~ "A", camYear == "NARS-02 2018"~ "B", camYear == "NARS-03 2018"~ "C", camYear == "NARS-04 2018"~ "D", camYear == "NARS-05 2018"~ "E", camYear == "THUL-01 2018"~ "A", camYear == "THUL-02 2018"~ "B", camYear == "THUL-03 2018"~ "C", camYear == "THUL-04 2018"~ "D", camYear == "THUL-08 2018"~ "E", camYear == "NARS-03 2019"~ "A", camYear == "NARS-13 2019"~ "B", camYear == "NARS-15 2019"~ "C", camYear == "NARS-17 2019"~ "D", camYear == "NARS-39 2019"~ "E", camYear == "NYAA-02 2019"~ "A", camYear == "NYAA-03 2019"~ "B", camYear == "NYAA-04 2019"~ "C", camYear == "NYAA-06 2019"~ "D", camYear == "NYAA-08 2019"~ "E" ))
+
+
+fig2_corrected = gtFullWithZeroes %>%
+  group_by(camYear, DOY) %>%
+  mutate(meanCount = mean(Count)) %>% 
+ggplot() +
+  geom_point(aes(x=DOY, y = meanCount, colour = camCode), size = 1.2) +
+  geom_line(aes(x=DOY, y = meanCount, colour = camCode), size = 0.5) +
+  ylab("Mean number of flowers annotated per day") +
+  xlab("DOY") +
+  #expand_limits(y = 0) +
+  labs(title ="b") +
+  facet_grid(vars(siteYear), scales="free") +
+    theme_bw() +
+  scale_color_brewer(palette="Dark2",  name = "Camera ID") + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.title = element_text(size = legendTitleSize),
+        text = element_text(size = axisSize),
+        legend.text = element_text(size = legendTextSize),
+        axis.line = element_line(),
+        axis.text=element_text(colour="black"),
+        panel.spacing = unit(0.7, "lines"))
+
+
+
+
+m = grid.arrange(fig3, fig2_corrected, ncol=2) # Figure 2ab in paper
+
+```
+```{r}
+
+
+gtFullWithZeroes = gtFullWithZeroes %>% 
+  mutate(camCodeYear = paste(siteYear, camCode))
+
+
+sfig1_corrected = ggplot(gtFullWithZeroes) +
+  geom_point(aes(x=time, y = Count), size = 0.4, shape = 0) +
+  geom_line(aes(x=time, y = Count), size = 0.1) +
+  geom_vline(data = borderImages, aes(xintercept = timeFirstFlower), colour = "darkgreen", linetype = "longdash", size = 0.5) +
+  geom_vline(data = borderImages, aes(xintercept = timeLastFlower), colour = "red", linetype = "longdash", size = 0.5) +
+  ylab("Number of flowers annotated") +
+  xlab("DOY") +
+  facet_wrap(vars(camCodeYear), scales = "free") +
+    theme_bw() +
+  theme(legend.position="none") + 
+  scale_color_brewer(palette="Dark2") + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.title = element_text(size=legendTitleSize),
+        text = element_text(size=axisSize),
+        legend.text = element_text(size = legendTextSize),
+        axis.line = element_line(colour = "black"),
+        axis.text=element_text(colour="black"))
+
+
+
+sfig1_corrected # Figure S3 in paper supporting information
+
+gtFullWithZeroesGaps = gtFullWithZeroes %>% 
+  distinct(camYear, time, .keep_all = T) %>% 
+  group_by(camYear) %>% 
+  arrange(time) %>% 
+  mutate(gap = (time - lag(time))*24)
+
+```
+
+
+
+
+
