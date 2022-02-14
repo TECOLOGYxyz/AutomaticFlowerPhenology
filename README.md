@@ -9,13 +9,6 @@
   </a>
 
   <h3 align="center">Automatic detection of <i>Dryas integrifolia</i> and <i>D. octopetala</i> for phenology monitoring with time-lapse cameras. </h3>
-
-  <p align="center">
-    Get flowering phenology for flowers using an automatic flower detection model.
-    <br />
-    <a href="https://github.com/TECOLOGYxyz/AutomaticTrackingPhenology"><strong>Explore the docs »</strong></a>
-    <br />
-    <a href="https://github.com/TECOLOGYxyz/AutomaticFlowerPhenology/issues">Report Bug</a>
   </p>
 </p>
 
@@ -45,7 +38,7 @@
 This repository supports the paper *Automatic flower detection and phenology monitoring using time-lapse cameras and deep learning*.
 
 
-*PAPER ABSTRACT*
+*ABSTRACT*
 Advancement of spring is a widespread biological response to climate change observed across taxa and biomes. However, the species level responses to warming are complex and the underlying mechanisms difficult to disentangle. This is partly due to lack of data, which is typically collected by repeated direct observations, and thus very time-consuming to obtain. Data deficiency is especially pronounced for the Arctic where the warming is particularly severe. We present a method for automatized monitoring of flowering phenology of specific plant species at very high temporal resolution through full growing seasons and across geographical regions. The method consists of image-based monitoring of field plots using near-surface time-lapse cameras and subsequent automatized detection and counting of flowers in the images using a convolutional neural network. We demonstrate the feasibility of collecting flower phenology data using automatic time-lapse cameras and show that the temporal resolution of the results surpasses what can be collected by traditional observation methods. We focus on two Arctic species, the mountain avens Dryas octopetala and Dryas integrifolia in 20 image series from four sites. Our flower detection model proved capable of detecting flowers of the two species with a remarkable precision of 0.918 (adjusted to 0.966) and a recall of 0.907. Thus, the method can automatically quantify the seasonal dynamics of flower abundance at fine-scale and return reliable estimates of traditional phenological variables such as onset, peak, and end of flowering. We describe the system and compare manual and automatic extraction of flowering phenology data from the images. Our method can be directly applied on sites containing mountain avens using our trained model, or the model could be fine-tuned to other species. We discuss the potential of automatic image-based monitoring of flower phenology and how the method can be improved and expanded for future studies.
 
 
