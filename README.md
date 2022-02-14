@@ -51,7 +51,7 @@ This repository contains stuff related to the paper and links to archived data. 
 
 Our fork of Mask RCNN: <a href="https://github.com/TECOLOGYxyz/Mask_RCNN"><strong>TECOLOGYxyz/Mask_RCNN</strong></a>
 
-*We customized a few things for our use of Mask-RCNN*. For detection, we added the option to run inference on all images in a folder and output the results in .csv format. We also added some info printing to the screen - processing time per image and stuff like that.
+We customized a few things for our use of Mask-RCNN. For detection, we added the option to run inference on all images in a folder and output the results in .csv format. We also added some info printing to the screen - processing time per image and stuff like that.
 For training, we implemented a more elaborate augmentation scheme than what was part of the original training. This improved our results.
 
 The above customizations are found in the TrainAndDetect.py script. As the name suggests, you can use this to both initiate training on you own data and to run inference on images with a trained model.
@@ -95,13 +95,13 @@ To detect flowers in images, run
 To train your own model, you need annotated images separated into a train and a val (validation) folder and the corresponding annotation files (train.json and val.json). You can use the <a href="https://www.robots.ox.ac.uk/~vgg/software/via/"><strong>VIA VGG</strong></a> annotation tool (we used version 2.0.5). With the --weights command you can tell the script to train as a finetuning of a model trained on the coco dataset or on another model.
 
 Your folder structure should look like this:
-parent
--train
---train images
---train.json
--val
---val images
---val.json
+parent  
+-train  
+--train images  
+--train.json  
+-val  
+--val images  
+--val.json  
 
 
 To train a model on your own data, run
