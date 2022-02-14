@@ -1,5 +1,3 @@
-The requirementsfile contains the packages used for training and running inferences with the Mask-RCNN model. Youcan probably get away with less if you just want to run inferences on a pretrained model.
-
 [![TECOLOGYxyz - AutomaticFlowerPhenology](https://img.shields.io/static/v1?label=TECOLOGYxyz&message=AutomaticFlowerPhenology&color=blue&logo=github)](https://github.com/TECOLOGYxyz/AutomaticFlowerPhenology "Go to GitHub repo")
 
 
@@ -10,7 +8,7 @@ The requirementsfile contains the packages used for training and running inferen
     <img src="logo.png" "https://github.com/TECOLOGYxyz/AutomaticFlowerPhenology" alt="Logo" width="80" height="80">
   </a>
 
-  <h3 align="center">Automatic detection of *Dryas integrifolia* and *D. octopetala* for phenology monitoring through full growing seasons. </h3>
+  <h3 align="center">Automatic detection of _Dryas integrifolia_ and _D. octopetala_ for phenology monitoring with time-lapse cameras. </h3>
 
   <p align="center">
     Get flowering phenology for flowers using an automatic flower detection model.
