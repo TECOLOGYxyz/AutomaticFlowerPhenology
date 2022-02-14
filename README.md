@@ -71,16 +71,17 @@ Install the required dependencies.
    ```
 
 Run the setup from the root directory
+
 3. ```sh
    python setup.py install
    ```
 
 
-
+<!-- USAGE -->
 ## Usage
 
 
-You are now ready to use Mask RCNN. You can follow the Matterport guides and tutorials if you want. If you would rather get right into detecting flowers of *Dryas* in images, use the script TrainAndDetect.py. The script is used to initiate both training and detection.
+You are now ready to use Mask RCNN. You can follow the Matterport guides and tutorials if you want. If you would rather get right into detecting flowers of *Dryas* in images, use the script TrainAndDetect.py and one of the flower detection models you have downloaded. The script is used to initiate both training and detection.
 
 To detect flowers in images in a folder, give the script the path to the root folder (the folder containing the folder with images that you want to process) and the name of folder with the images. Further, give the path to the weights-file you want to use.
 
