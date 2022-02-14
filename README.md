@@ -8,7 +8,7 @@
     <img src="logo.png" "https://github.com/TECOLOGYxyz/AutomaticFlowerPhenology" alt="Logo" width="80" height="80">
   </a>
 
-  <h3 align="center">Automatic detection of _Dryas integrifolia_ and _D. octopetala_ for phenology monitoring with time-lapse cameras. </h3>
+  <h3 align="center">Automatic detection of <i>Dryas integrifolia</i> and <i>D. octopetala</i> for phenology monitoring with time-lapse cameras. </h3>
 
   <p align="center">
     Get flowering phenology for flowers using an automatic flower detection model.
