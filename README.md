@@ -58,7 +58,7 @@ The above customizations are found in the TrainAndDetect.py script. As the name 
 
 Two flower detetion models are published along with the paper. To get started using these models or to train your own, you need to download the models from the link below, clone the TECOLOGYxyz/Mask_RCNN repo and install the required python packages.
 
-Download the flower detection models: 
+Download the flower detection models: **ZENODO LINK**
 
 
 Clone the TECOLOGYxyz/Mask_RCNN repo
@@ -98,7 +98,7 @@ To detect flowers in images, run
 
 To train your own model, you need annotated images separated into a train and a val (validation) folder and the corresponding annotation files (train.json and val.json). You can use the <a href="https://www.robots.ox.ac.uk/~vgg/software/via/"><strong>VIA VGG</strong></a> annotation tool (we used version 2.0.5). With the --weights command you can tell the script to train as a finetuning of a model trained on the coco dataset or on another model.
 
-Your folder structure should look like this:
+Your folder structure should look like this:  
 parent  
 -train  
 --train images  
