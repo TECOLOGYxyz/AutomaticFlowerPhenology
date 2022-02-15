@@ -102,10 +102,10 @@ Your folder structure should look like this:
 parent  
 -train  
 --train images  
---train.json  
+--train.csv  
 -val  
 --val images  
---val.json  
+--val.csv  
 
 
 To train a model on your own data, run
