@@ -35,7 +35,6 @@ This repository supports the paper *Automatic flower detection and phenology mon
 </details>
 
 
-
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
@@ -58,7 +57,8 @@ The above customizations are found in the TrainAndDetect.py script. As the name 
 
 Two flower detetion models are published along with the paper. To get started using these models or to train your own, you need to download the models from the link below, clone the TECOLOGYxyz/Mask_RCNN repo and install the required python packages.
 
-Download the flower detection models: **ZENODO LINK**
+Download the flower detection models and associtated data: <a href="https://doi.org/10.5281/zenodo.6075475"><strong>https://doi.org/10.5281/zenodo.6075475</strong></a>
+
 
 
 Clone the TECOLOGYxyz/Mask_RCNN repo
